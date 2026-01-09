@@ -1,0 +1,108 @@
+les preblémes que réglent kubernetes:
+- la scalabilité c'est à dire que on peux augmenter ou diminuer le nombre de réplicas sans avoir à redéployer l'application.
+- self healing c'est à dire que s'il y'a un probléme sur un pod, kubernetes peux démararer un nouveau pop dans un node
+- roll out updates c'est à dire que sans redéployer l'application, on peux pousser une nouvelle mise à jour
+- rollback c'est à dire que si la mise à jour ne nous satisfait pas, on peux retouner à la mise à jour précédente
+
+difference entre un pod et node
+
+un pod est l'unité la plus petite de kubernetes. Les pod se trouvent dans les Nodes. On peux avoir plusieurs pod dans un node et plusieurs containers dans un pod 
+
+running pod
+
+apiVersion: v1
+kind: pod
+metadata:
+  name: running-pod
+spec:
+containers:
+  - name: nginx-container
+    image: nginx:latest
+
+crash pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crash-pod
+spec:
+  containers:
+    - name: crash-container
+      image: busybox
+      command: ["sh", "-c", "echo Crash test && exit 1"]
+
+
+cmd error: kubectl describe pod crash-pod
+logs: kubectl logs crash-pod
+
+le pod est en CrashLoopBackOff parce que le container essaie de démarrer et crash infiniment
+
+#### class 3
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata: 
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+
+pour scaler à 4 réplicas il faut utiliser cette commande:
+kubectl scale deployment web-deployment --replicas=4
+et pour vérifier que les pods sont crée:
+kubectl get pods
+
+pour mettre à jour
+kubectl set image deployment/web-deployment nginx:1.26
+kubectl rollout status deployment web-deployment
+kubectl rollout undo deployment web-deployment
+
+## class 4 a
+1. avec un service de type NodePort
+2. un service de type LoadBalancer. et le fournisseur donne une ip plublic pour accéder au service.
+3. Pour la sécurité, je ne veux pas exposer l'IP du Node donc le LoadBalancer fourni par le cloud pourra faire office de point d'entrée et d'équilibrage de charge
+
+
+## class 4
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+spec:
+  type: ClusterIP
+  selector:
+    app: web
+  ports:
+    - port: 80
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-NodePort
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+
+1. pour tester l'accés depuis l'intérieur, on peux utiliser curl:
+curl http://web-service
+
+2. depluis l'exterieur:
+curl http://<ip_node>:30080
