@@ -8,8 +8,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -140,10 +143,12 @@ func handleSplit(line string) []string {
 	return resp
 }
 
-func handleConn(store *Store, conn net.Conn) {
-	defer conn.Close()
+func handleConn(ctx context.Context, store *Store, conn net.Conn) {
 	sc := bufio.NewScanner(conn)
-
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
 	for sc.Scan() {
 		line := sc.Text()
 		resp := "ERROR unknown command"
@@ -152,6 +157,9 @@ func handleConn(store *Store, conn net.Conn) {
 			resp = "PONG"
 		}
 		splitLine := handleSplit(line)
+		if len(splitLine) == 0 {
+			continue
+		}
 		action := splitLine[0]
 		switch action {
 		case "GET":
@@ -191,38 +199,76 @@ func handleConn(store *Store, conn net.Conn) {
 		fmt.Println("scanner error", err)
 	}
 }
-
-func main() {
+func server(ctx context.Context) {
+	var wg sync.WaitGroup
 	data := make(map[string]string)
 	store := Store{data: data}
+	connLimit := make(chan struct{}, 5)
 	ln, err := net.Listen("tcp", ":9000")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ln.Close()
+
+	go func() {
+		<-ctx.Done()
+		ln.Close() // stop listening
+	}()
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
+				select {
+				case <-ctx.Done():
+					wg.Wait() // wait connexions finishes
+					fmt.Println("server shut down cleanly")
+					return
+				default:
+					continue
+				}
+			}
+			select {
+			case connLimit <- struct{}{}:
+			default:
+				conn.Write([]byte("server buzy"))
+				conn.Close()
 				continue
 			}
-			go handleConn(&store, conn)
+
+			wg.Go(func() {
+				defer func() { <-connLimit }()
+				handleConn(ctx, &store, conn)
+			})
 		}
 	}()
-	conn, err := net.Dial("tcp", "localhost:9000")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-	conn.Write([]byte("PING\n"))
-	conn.Write([]byte("SET hello world\n"))
-	conn.Write([]byte("DEL hello\n"))
-	sc := bufio.NewScanner(conn)
-	for sc.Scan() {
-		line := sc.Text()
-		fmt.Println(string(line))
-	}
-	if err := sc.Err(); err != nil {
-		fmt.Println("scanner error", err)
-	}
+}
+func main() {
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
+	server(ctx)
+	time.Sleep(100 * time.Millisecond)
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
+		conn, err := net.Dial("tcp", "localhost:9000")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer conn.Close()
+		conn.Write([]byte("PING\n"))
+		conn.Write([]byte("SET hello world\n"))
+		conn.Write([]byte("DEL hello\n"))
+		sc := bufio.NewScanner(conn)
+		for sc.Scan() {
+			line := sc.Text()
+			fmt.Println(string(line))
+		}
+		if err := sc.Err(); err != nil {
+			fmt.Println("scanner error", err)
+		}
+	})
+	wg.Wait()
 }
