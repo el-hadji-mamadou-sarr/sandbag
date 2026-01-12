@@ -1,0 +1,38 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  APP_ENV: production
+  APP_NAME: web-app
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data:
+  DB_PASSWORD: c3VwZXJzZWNyZXQ=
+
+---
+      containers:
+        - name: nginx-container
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: web-config
+                  key: APP_ENV
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+
+1. Les secrets sont sauvegardés dans la base etcd. et dans cette base l'encryption at rest par défaut n'est pas activé donc ce qui fait que les secrets
+ne sont pas chiffrés.
+2. une bonne pratique: Il faut toujours définir le type de secret dans le manifeste selon le cas d'usage ce qui permettrait à kubernetes des faire des validations selon le type.Il faut aussi activer le chiffrement au repos. configurer les RBAC pour accéder au accéder au secret basé sur le principe des moindre priviléges. Limiter l'accés au secrets que sur des conteneurs spécifiques. Utiliser des fournisseurs externes.

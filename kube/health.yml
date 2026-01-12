@@ -1,0 +1,30 @@
+containers: 
+  - name: nginx
+    image: nginx:1.26
+    ports:
+      - containerPort: 80
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+
+---
+
+1. si readiness probe échoue, c'est à dire que le containeur n'est pas prét pour recevoir du trafic. Le pod est retiré du service.Aucun redémarrage du containeur
+2. Si le liveness probe échoue, c'est à dire que le containeur est démarré mais bloqué ce qui provoque un redémarrage du containeur.
+3. un pod peux étre OOMKilled si une la mémoire utilisée par le containeur dépasse la limite 
+
