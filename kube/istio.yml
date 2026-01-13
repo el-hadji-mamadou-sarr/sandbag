@@ -1,0 +1,39 @@
+1. si t'as plusieurs service, ça rend la maintenance compliqué et aussi le probléme de la différence des libs
+2. il permet de comprendre le trafic sur le reseau
+3. kubernetes est un orchestrateur et istio permet la communication entre les services
+
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: 
+  name: backend-dr
+spec:
+  host: backend
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+  
+
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: backend-vs
+spec:
+  host: backend
+  http:
+  - route:
+    - destination:
+        host: backend
+        subset: v1
+      weight: 80
+    - destination:
+        host: backend
+        subset: v2
+      weight: 20
+
+Pour revenir immédiatement sur la v1 à 100%, il faudrait tout simplement d'enlever la deuxieme destination .

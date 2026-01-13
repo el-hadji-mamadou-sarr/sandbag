@@ -1,0 +1,41 @@
+1. Pour pouvoir distribuer le trafic sur ces pods avec ces labels
+2. le service kubernetes permet de faire le deiscovery des pods et le virtualService de istio permet de faire le routage, le load balancing.
+3. le probléme d'indisponibilité d'un déploiment d'une nouvelle version de l'application. avec les canary release, on peux déployer une nouvelle version à une portion des utilisateurs, observer et augmenter au fur et à mesure le déploiment.
+4. du fait que istio, joue sur le trafic en changeant la configuration mais pas comment kubernetes deploie les pods
+
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: 
+  name: backend-dr
+spec:
+  host: backend
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+  
+
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: backend-vs
+spec:
+  hosts: 
+  - backend
+  http:
+  - route:
+    - destination:
+        host: backend
+        subset: v1
+      weight: 80
+    - destination:
+        host: backend
+        subset: v2
+      weight: 20
+
+Pour revenir immédiatement sur la v1 à 100%, il faudrait tout simplement d'enlever la deuxieme destination .

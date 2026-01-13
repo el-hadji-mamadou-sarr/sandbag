@@ -76,7 +76,6 @@ func handleConn(conn net.Conn) {
 		if shouldClose(req, res) {
 			return
 		}
-
 	}
 }
 

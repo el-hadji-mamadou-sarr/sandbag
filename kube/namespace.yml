@@ -8,11 +8,29 @@ metadata:
   name: viewer
   namespace: team-a
 rules:
-  apiGroup: [""]
-  ressources: ["pods", "services"]
-  verbs: ["get", "list"]
+  - apiGroups: [""]
+    ressources: ["pods", "services"]
+    verbs: ["get", "list"]
 
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
+metadata:
+  name: viewer-binding
+  namespace: team-a
+subjects:
+  - kind: User
+    name: alice
+    apiGroups: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: viewer
+  apiGroups: rbac.authorization.k8s.io
+
+--- 
+
+1. Role pour donner une permission dans le scope namespace et le ClusterRole pour donner une permission dans le cluster wide
+2. Pour sécuriser les pods et les services, par défaut personne n'a les permissions et puis on attribue ensuite
+  
+  

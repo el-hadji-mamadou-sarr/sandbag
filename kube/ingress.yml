@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  type: ClusterIP
+  selector:
+    app: demo
+  ports:
+    - port: 80
+
+---
+
+apiVersion: v1
+kind: Ingress
+metadata:
+  name: app-ingress
+spec:
+  rules:
+    - host: demo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-service
+                port:
+                  number: 80
+
+
+1. son role est de garder les fichiers de certificats en sécurité
+2. un seul entry point et load balancer pour tous les services
+
+bonus: le cert-manager crée les clé, fait la rotation des clés et l'injecte dans les secrets
+ 
