@@ -21,8 +21,7 @@ if __name__ == "__main__":
     pack_lost = 0
     sock.settimeout(0.2)
 
-
-    last_seq = -1
+    received_seq = []
     for i in range(10):
         msg = b"x"*1024
         packet = make_packet(i, msg)
@@ -30,14 +29,12 @@ if __name__ == "__main__":
         try:
             data, _ = sock.recvfrom(2048)
             seq, ts, received_packet = parse_packet(data)
-            if seq != last_seq + 1:
-                print("out of order")
-                last_seq = seq
+            received_seq.append(seq)
         except socket.timeout:
-            print(f"lost ---")
+            print(f"lost seq: {i} --- ")
             pack_lost += 1
     end= time.time()
 
     print(f"elepsed {end-start}, lost: {(pack_lost/10)*100}")
-
+    print(f"received seq: {received_seq}")
 

@@ -22,7 +22,7 @@ while True:
     events = sel.select(timeout=0)
     for key, _ in events:
         data, adr = key.fileobj.recvfrom(2048)
-        time.sleep(0.05)
+        time.sleep(0.2)
         key.fileobj.sendto(data, adr)
 
     elapsed = time.time() - start_time
