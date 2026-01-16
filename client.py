@@ -20,19 +20,23 @@ if __name__ == "__main__":
     start = time.time()
     pack_lost = 0
     sock.settimeout(0.2)
-
+    W = 5
     received_seq = []
+
     for i in range(10):
-        msg = b"x"*1024
-        packet = make_packet(i, msg)
-        sock.sendto(packet, ("127.0.0.1", 9090))
-        try:
-            data, _ = sock.recvfrom(2048)
-            seq, ts, received_packet = parse_packet(data)
-            received_seq.append(seq)
-        except socket.timeout:
-            print(f"lost seq: {i} --- ")
-            pack_lost += 1
+
+        if seq < ack + W :
+            msg = b"x"*1024
+            packet = make_packet(i, msg)
+            sock.sendto(packet, ("127.0.0.1", 9090))
+            try:
+                data, _ = sock.recvfrom(2048)
+                seq, ts, received_packet = parse_packet(data)
+                received_seq.append(seq)
+            except socket.timeout:
+                print(f"lost seq: {i} --- ")
+                pack_lost += 1
+
     end= time.time()
 
     print(f"elepsed {end-start}, lost: {(pack_lost/10)*100}")
