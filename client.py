@@ -2,17 +2,17 @@ import socket
 import time
 import struct
 
-HEADER_FMT = "!Id" #uint #double
+HEADER_FMT = "!IId" #uint #double
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
 print(HEADER_SIZE)
 
-def make_packet(seq, payload) -> bytes:
-    return struct.pack(HEADER_FMT, seq, time.time()) + payload
+def make_packet(seq,ack, payload) -> bytes:
+    return struct.pack(HEADER_FMT, seq, ack, time.time()) + payload
 
 def parse_packet(data):
-    seq, ts = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
+    seq, ack, ts = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
     payload = data[HEADER_SIZE:]
-    return seq, ts, payload
+    return seq, ack , ts, payload
 
 if __name__ == "__main__":
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -21,21 +21,24 @@ if __name__ == "__main__":
     pack_lost = 0
     sock.settimeout(0.2)
     W = 5
+    seq = 1
+    last_acked = 0
     received_seq = []
 
-    for i in range(10):
-
-        if seq < ack + W :
-            msg = b"x"*1024
-            packet = make_packet(i, msg)
-            sock.sendto(packet, ("127.0.0.1", 9090))
-            try:
-                data, _ = sock.recvfrom(2048)
-                seq, ts, received_packet = parse_packet(data)
-                received_seq.append(seq)
-            except socket.timeout:
-                print(f"lost seq: {i} --- ")
-                pack_lost += 1
+    expected = 0
+    while W > seq - last_acked:
+        msg = b"x"*1024
+        packet = make_packet(seq, last_acked, msg)
+        sock.sendto(packet, ("127.0.0.1", 9090))
+        try:
+            data, _ = sock.recvfrom(2048)
+            _, ack, _, _ = parse_packet(data)
+            if ack > last_acked:
+                last_acked = ack
+            seq+=1
+        except socket.timeout:
+            print(f"lost seq: {seq} --- ")
+            pack_lost += 1
 
     end= time.time()
 
