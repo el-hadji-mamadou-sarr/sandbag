@@ -21,27 +21,32 @@ if __name__ == "__main__":
     pack_lost = 0
     sock.settimeout(0.2)
     W = 5
-    seq = 1
+    seq = 0
     last_acked = 0
     received_seq = []
 
     expected = 0
-    while W > seq - last_acked:
-        msg = b"x"*1024
-        packet = make_packet(seq, last_acked, msg)
-        sock.sendto(packet, ("127.0.0.1", 9090))
+    running = True
+    buffer = {}
+    for i in range(5):
+        # envoyer tant que la fenêtre le permet
+        while seq < last_acked + W:
+            packet = make_packet(seq, last_acked, b"")
+            sock.sendto(packet, ("127.0.0.1", 9090))
+            buffer[seq] = {"packet":packet, "send_ts":time.time()}
+            seq+=1
+        
+        # recevoir les ack
         try:
             data, _ = sock.recvfrom(2048)
-            _, ack, _, _ = parse_packet(data)
-            if ack > last_acked:
-                last_acked = ack
-            seq+=1
+            _, ack, ts, _ = parse_packet(data)
+            last_acked = max(last_acked, ack)
         except socket.timeout:
-            print(f"lost seq: {seq} --- ")
-            pack_lost += 1
+            pass
+        
+        # retransmettre si timeout
+        for seq, info in buffer.items():
+            if time.time() - info["send_ts"] > 1:
+                sock.sendto(info["packet"], ("127.0.0.1", 9090))
 
-    end= time.time()
-
-    print(f"elepsed {end-start}, lost: {(pack_lost/10)*100}")
-    print(f"received seq: {received_seq}")
 
